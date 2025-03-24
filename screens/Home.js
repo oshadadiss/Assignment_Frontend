@@ -1,22 +1,13 @@
 import { getDefaultConfig } from "@react-native/metro-config";
 import React, { useEffect, useState } from "react";
-import { SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, useColorScheme, View } from "react-native";
+import {API_ENDPOINT} from "./utills";
+import { Button, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, useColorScheme, View } from "react-native";
 
 const Home = ({navigation}) => {
 
-  const [studentsList, setStudentsList] = useState([]);
-
-  useEffect(() => {
-    getAllStudents();
-  },[]);
-
-  useEffect(() => {
-    const unsubscribe = navigation.addListener('focus', () => {
-      console.log("Focused");
-      getAllStudents();
-    });
-    return unsubscribe;
-  }, [navigation]);
+  const [movieList, setMovieList] = useState([]);
+  const [search, setSearch] = useState("");
+  const [responseText, setResponseText] = useState("");
 
   const colorScheme = useColorScheme();
   
@@ -29,61 +20,67 @@ const Home = ({navigation}) => {
     }
   };
 
-  const getAllStudents = async () => {
-    try {
-      const response = await fetch('http://192.168.1.6:9090/getAllStudents', {
-        method : "GET"
-      })
-      const data = await response.json();
-      setStudentsList(data);
-    } catch (error) {
-      console.log('Error occurred when fetching all:', error.message);
+  const onPressButton = async () =>{
+    if(search != ""){
+      try{
+        const encodedSearch = encodeURIComponent(search);
+        const response = await fetch(`https://www.omdbapi.com/?apikey=dcc0d8f&s=${encodedSearch}`,{
+          method: "GET"
+        })
+        const data = await response.json();
+        console.log(data.Search);
+        console.log(data.Response);
+        setResponseText("");
+        setMovieList(data.Search);
+      }
+      catch(error){
+        console.log("Failed " + error);
+        setResponseText("Search Failed..!");
+        setSearch("");
+      }
     }
-  };
-
-  const removeStudent = async (item) => {
-    try {
-      const response = await fetch(`http://192.168.1.6:9090/deleteStudentById/${item.id}`, {
-        method : "DELETE"
-      }).then(() => {
-        getAllStudents();
-      })
-    } catch (error) {
-      console.log('Error occurred when deleting:', error.message);
+    else{
+      console.log("Empty");
+      setResponseText("Please Enter Movie name..!");
+      setMovieList([]);
     }
   };
 
   return(
     <SafeAreaView style = {[styles.main_container, dynamicStyles.container]}>
       <View>
-        <View style={styles.top_navigation_bar}>
-          <Text style={styles.main_text}>Students List</Text>
-          <TouchableOpacity onPress={() => navigation.navigate("Add or Edit")}>
-            <Text style={styles.add_text}>Add +</Text>
-          </TouchableOpacity>
+        <Text style={styles.main_text}>Movie List</Text>
+      </View>
+      <View style={styles.search_bar_container}>
+        <View style={styles.input_container}>
+        <TextInput 
+        placeholder="Search Movies" 
+        value={search} 
+        onChangeText={(text) => {setSearch(text)}} 
+        style = {styles.input_text}/>
         </View>
-        <ScrollView style = {styles.list_container}>
-          {studentsList.map((item,index) => {
-            return (
-              <View key={index} style = {styles.rowContainer}>
+        <View style = {styles.button}>
+          <Button title="Search" onPress={() => onPressButton()}/>
+        </View>
+      </View>
+      {responseText != "" ? 
+      <View style = {styles.response_view}>
+        <Text style = {styles.response_text}>{responseText}</Text>
+      </View> : null}
+      <ScrollView style = {styles.list_container}>
+        {movieList.map((item,index) => {
+          return(
+            <TouchableOpacity key={index} onPress={() => navigation.navigate("More", {item})}>
+              <View style = {styles.rowContainer}>
                 <View style = {styles.item}>
-                  <Text style = {styles.item_header}>{item.name}</Text>
-                  <Text style = {styles.item_body}>Age: {item.age}</Text>
-                  <Text style = {styles.item_body}>Grade :{item.grade}</Text>
-                </View>
-                <View style = {styles.button_item}>
-                  <TouchableOpacity onPress={() => removeStudent(item)}>
-                    <Text style = {styles.item_delete}>Delete</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity onPress={() => navigation.navigate("Add or Edit", {item})}>
-                    <Text style={styles.item_delete}>Edit</Text>
-                  </TouchableOpacity>
+                  <Text style={styles.title_text}>{item.Title}</Text>
+                  <Text style={styles.detail_text}>{item.Year}</Text>
                 </View>
               </View>
-            )
-          })}
-        </ScrollView>
-      </View>
+            </TouchableOpacity>
+          )
+        })}
+      </ScrollView>
     </SafeAreaView>
   );
 };
@@ -95,6 +92,35 @@ const styles = StyleSheet.create({
   main_container:{
     flex: 1
   },
+  main_text:{
+    fontSize:32,
+    fontWeight:"bold",
+    padding: 10
+  },
+  search_bar_container: {
+    flexDirection: "row",
+    justifyContent:'space-between' ,
+    alignItems: 'center'
+  },
+  input_container:{
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  input_text: {
+    width: '80%',
+    height: 40,
+    borderRadius: 5,
+    borderWidth: 1,
+    borderColor: "#888",
+  },
+  button: {
+    paddingRight: 50
+  },
+  list_container:{
+    paddingTop:10,
+    paddingHorizontal: 70
+  },
   rowContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -102,46 +128,22 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBlockColor: "#888"
   },
-  main_text:{
-    fontSize:32,
-    fontWeight:"bold",
-    padding: 10
-  },
-  list_container:{
-    paddingHorizontal: 20
-  },
   item: {
     justifyContent: "center"
   },
-  button_item: {
-    paddingVertical: 20,
-    justifyContent: "center",
-    flexDirection: "row",
-  },
-  item_header: {
+  title_text:{
     fontSize:16,
-    fontWeight:"bold",
+    fontWeight: 'bold'
   },
-  item_body: {
-    color: "#444",
+  detail_text:{
     fontSize:16,
-    paddingHorizontal: 10
+    color: "#888"
   },
-  item_delete: {
-    paddingRight: 20,
-    fontSize:20,
-    fontWeight:"bold",
+  response_view: {
+    alignItems: 'center'
+  },
+  response_text: {
+    fontSize: 25,
     color: "red"
-  },
-  add_text:{
-    color: "blue",
-    fontSize:32,
-    fontWeight:"bold",
-    padding: 10
-  },
-  top_navigation_bar: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingVertical: 5,
-  },
+  }
 });
